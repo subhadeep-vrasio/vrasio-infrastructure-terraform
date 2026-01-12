@@ -1,99 +1,57 @@
-# WITH FREE domain
+# -----------------------------
+# Origin Request Policy
+# (Forward everything to Laravel)
+# -----------------------------
+resource "aws_cloudfront_origin_request_policy" "sandbox_forward_all" {
+  name = "${var.env}-sandbox-forward-all-policy"
 
-# resource "aws_cloudfront_distribution" "app" {
-#   enabled = true
-#   comment = "CloudFront HTTPS for ${var.env}"
+  cookies_config {
+    cookie_behavior = "all"
+  }
 
-#   origin {
-#     domain_name = aws_instance.ec2.public_dns
-#     origin_id   = "ec2-origin"
+  headers_config {
+    header_behavior = "allViewer"
+  }
 
-#     custom_origin_config {
-#       http_port              = 80
-#       https_port             = 443
-#       origin_protocol_policy = "http-only"
-#       origin_ssl_protocols   = ["TLSv1.2"]
-#     }
-#   }
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
 
-#   default_cache_behavior {
-#     target_origin_id       = "ec2-origin"
-#     viewer_protocol_policy = "redirect-to-https"
+# -----------------------------
+# Cache Policy (Caching Disabled)
+# IMPORTANT: When caching is disabled, CloudFront requires
+# cookies/headers/query_string behavior to be NONE here.
+# Forwarding is controlled by Origin Request Policy instead.
+# -----------------------------
+resource "aws_cloudfront_cache_policy" "sandbox_cache_disabled" {
+  name = "${var.env}-sandbox-cache-disabled"
 
-#     allowed_methods = ["GET", "HEAD"]
-#     cached_methods  = ["GET", "HEAD"]
+  default_ttl = 0
+  min_ttl     = 0
+  max_ttl     = 0
 
-#     forwarded_values {
-#       query_string = false
-#       cookies { forward = "none" }
-#     }
-#   }
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_gzip   = false
+    enable_accept_encoding_brotli = false
 
-#   restrictions {
-#     geo_restriction {
-#       restriction_type = "none"
-#     }
-#   }
+    cookies_config {
+      cookie_behavior = "none"
+    }
 
-#   viewer_certificate {
-#     cloudfront_default_certificate = true
-#   }
+    headers_config {
+      header_behavior = "none"
+    }
 
-#   tags = { Env = var.env }
-# }
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+  }
+}
 
-# WITH Domian
-# resource "aws_cloudfront_distribution" "sandbox" {
-#   enabled = true
-#   comment = "Sandbox CloudFront for ${var.domain_name}"
-
-#   aliases = [var.domain_name]
-
-#   origin {
-#     domain_name = aws_instance.ec2.public_dns
-#     origin_id   = "sandbox-ec2"
-
-#     custom_origin_config {
-#       http_port              = 80
-#       https_port             = 443
-#       origin_protocol_policy = "http-only"
-#       origin_ssl_protocols   = ["TLSv1.2"]
-#     }
-#   }
-
-#   default_cache_behavior {
-#     target_origin_id       = "sandbox-ec2"
-#     viewer_protocol_policy = "redirect-to-https"
-
-#     allowed_methods = ["GET", "HEAD"]
-#     cached_methods  = ["GET", "HEAD"]
-
-#     forwarded_values {
-#       query_string = false
-#       cookies { forward = "none" }
-#     }
-#   }
-
-#   viewer_certificate {
-#     acm_certificate_arn      = aws_acm_certificate_validation.sandbox_cert_validation.certificate_arn
-#     ssl_support_method       = "sni-only"
-#     minimum_protocol_version = "TLSv1.2_2021"
-#   }
-
-#   restrictions {
-#     geo_restriction {
-#       restriction_type = "none"
-#     }
-#   }
-
-#   tags = {
-#     Env = var.env
-#   }
-# }
-
-
-
-
+# -----------------------------
+# CloudFront Distribution
+# -----------------------------
 resource "aws_cloudfront_distribution" "sandbox" {
   enabled = true
   comment = "Sandbox CloudFront for ${var.domain_name}"
@@ -101,8 +59,8 @@ resource "aws_cloudfront_distribution" "sandbox" {
   aliases = [var.domain_name]
 
   origin {
-    domain_name = aws_instance.ec2.public_dns
-    origin_id   = "sandbox-ec2"
+    domain_name = var.origin_domain_name
+    origin_id   = "sandbox-ec2-origin"
 
     custom_origin_config {
       http_port              = 80
@@ -113,29 +71,21 @@ resource "aws_cloudfront_distribution" "sandbox" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "sandbox-ec2"
+    target_origin_id       = "sandbox-ec2-origin"
     viewer_protocol_policy = "redirect-to-https"
 
-    allowed_methods = ["GET", "HEAD"]
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
     cached_methods  = ["GET", "HEAD"]
 
-    forwarded_values {
-      query_string = false
-      cookies { forward = "none" }
-    }
+    cache_policy_id          = aws_cloudfront_cache_policy.sandbox_cache_disabled.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.sandbox_forward_all.id
   }
 
-  # If you have an ACM certificate, keep this:
   viewer_certificate {
     acm_certificate_arn      = aws_acm_certificate_validation.sandbox_cert_validation.certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
-
-  # If you don't have ACM, use CloudFront's default SSL certificate by commenting the above lines and uncommenting this:
-  # viewer_certificate {
-  #   cloudfront_default_certificate = true
-  # }
 
   restrictions {
     geo_restriction {

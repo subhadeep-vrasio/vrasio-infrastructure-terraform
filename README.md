@@ -54,6 +54,7 @@ terraform apply -var-file="dev.tfvars" -replace="aws_instance.ec2"
 
 ## Output
 
+
 - `ec2_public_dns` = "ec2-13-57-20-205.us-west-1.compute.amazonaws.com"
 - `ec2_public_ip` = "54.177.103.217"
 - `sandbox_cloudfront_domain` = "d38pavieo2eevg.cloudfront.net"

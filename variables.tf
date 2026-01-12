@@ -15,8 +15,14 @@ variable "ssh_cidr"  { type = string }
 variable "http_cidr" { type = string }
 
 variable "install_web_stack" { type = bool }
+
 variable "domain_name" {
   description = "Full domain name for sandbox"
+  type        = string
+}
+
+variable "origin_domain_name" {
+  description = "Internal origin DNS that CloudFront connects to"
   type        = string
 }
 
